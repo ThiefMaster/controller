@@ -80,6 +80,6 @@ func OpenPort(port string) (<-chan Message, chan<- Command) {
 	msgChan := make(chan Message, 8)
 	cmdChan := make(chan Command, 8)
 	go serialWorker(port, msgChan, cmdChan)
-	cmdChan <- MakeReset()
+	cmdChan <- NewResetCommand()
 	return msgChan, cmdChan
 }
