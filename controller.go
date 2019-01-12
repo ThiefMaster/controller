@@ -36,6 +36,10 @@ type appState struct {
 	ignoreBottomLeftRelease   bool
 	disableFoobarStateLED     bool
 	foobarState               apis.FoobarPlayerInfo
+	// TODO: refactor this to properly track all buttons without manually implementing it for each button
+	buttonTopLeftPressed     bool
+	buttonBottomLeftPressed  bool
+	buttonBottomRightPressed bool
 }
 
 func (s *appState) reset() {
@@ -44,6 +48,9 @@ func (s *appState) reset() {
 	s.monitorsOn = true
 	s.disableFoobarStateLED = false
 	s.ignoreBottomLeftRelease = false
+	s.buttonTopLeftPressed = false
+	s.buttonBottomLeftPressed = false
+	s.buttonBottomRightPressed = false
 	s.resetKnobPressState(false)
 }
 
@@ -120,15 +127,19 @@ func main() {
 		case !state.ready:
 			log.Println("ignoring input during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
+			state.buttonTopLeftPressed = false
 			lockDesktop()
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
+			state.buttonBottomRightPressed = false
 			toggleMonitors(cmdChan, state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
+			state.buttonBottomLeftPressed = false
 			if !state.knobPressed && !state.ignoreBottomLeftRelease {
 				go foobarNext(state, cmdChan)
 			}
 			state.ignoreBottomLeftRelease = false
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
+			state.buttonBottomLeftPressed = true
 			if state.knobPressed {
 				state.ignoreKnobRelease = true
 				state.ignoreBottomLeftRelease = true
@@ -164,6 +175,18 @@ func main() {
 			} else {
 				go foobarAdjustVolume(state, cmdChan, msg.Value)
 			}
+		case msg.Message == comm.ButtonPressed && msg.Source == buttonTopLeft:
+			state.buttonTopLeftPressed = true
+		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomRight:
+			state.buttonBottomRightPressed = true
+		}
+
+		if state.buttonTopLeftPressed && state.buttonBottomLeftPressed && state.buttonBottomRightPressed {
+			log.Println("shutdown requested")
+			break
 		}
 	}
+
+	showFancyOutro(cmdChan)
+	log.Println("exiting")
 }

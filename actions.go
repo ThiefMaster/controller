@@ -19,6 +19,19 @@ func showFancyIntro(cmdChan chan<- comm.Command, delay time.Duration) {
 	}
 }
 
+func showFancyOutro(cmdChan chan<- comm.Command) {
+	for j := 0; j < 2; j++ {
+		for i := LED5; i <= LED1; i++ {
+			cmdChan <- comm.NewSetLEDCommand(i, '1')
+			time.Sleep(50 * time.Millisecond)
+		}
+		for i := LED1; i >= LED5; i-- {
+			cmdChan <- comm.NewClearLEDCommand(i)
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+}
+
 func toggleMonitors(cmdChan chan<- comm.Command, state *appState) {
 	if state.monitorsOn {
 		log.Printf("turning monitors off")
