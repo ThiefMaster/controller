@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/thiefmaster/controller/comm"
+	"github.com/thiefmaster/controller/ddc"
 	"github.com/thiefmaster/controller/wts"
 )
 
@@ -38,12 +39,24 @@ func trackLockedState(state *appState, cmdChan chan<- comm.Command) {
 	}
 }
 
+func keepMonitorOffWhileLocked(state *appState) {
+	// Sometimes the monitors wake up from standby even though they
+	// shouldn't. This seems to happen randomly or in some cases when
+	// connecting to the PC remotely. Let's force them back off!
+	for range time.Tick(5 * time.Second) {
+		if !state.monitorsOn && state.desktopLocked {
+			ddc.SetMonitorsStandby()
+		}
+	}
+}
+
 func main() {
 	state := &appState{}
 	state.reset()
 
 	msgChan, cmdChan := comm.OpenPort("COM6")
 	go trackLockedState(state, cmdChan)
+	go keepMonitorOffWhileLocked(state)
 
 	for msg := range msgChan {
 		switch {
