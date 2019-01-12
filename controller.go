@@ -112,7 +112,7 @@ func main() {
 		case msg.Message == comm.Ready:
 			if !state.ready {
 				state.ready = true
-				go showFancyIntro(state, cmdChan, 75*time.Millisecond)
+				go showFancyIntro(cmdChan, 75*time.Millisecond)
 				go trackLockedState(state, cmdChan)
 				go keepMonitorOffWhileLocked(state)
 				go trackFoobarState(state, cmdChan)
