@@ -157,6 +157,13 @@ func FoobarNext() error {
 	return nil
 }
 
+func FoobarStop() error {
+	if _, err := foobarRequest("POST", "/api/player/stop", nil); err != nil {
+		return err
+	}
+	return nil
+}
+
 func FoobarTogglePause() error {
 	state, err := GetFoobarState()
 	if err != nil {

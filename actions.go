@@ -55,6 +55,13 @@ func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 	})
 }
 
+func foobarStop() {
+	log.Println("stopping playback")
+	if err := apis.FoobarStop(); err != nil {
+		log.Printf("foobar stop failed: %v\n", err)
+	}
+}
+
 func foobarTogglePause() {
 	log.Println("toggling pause")
 	if err := apis.FoobarTogglePause(); err != nil {

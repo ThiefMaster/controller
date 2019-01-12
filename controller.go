@@ -32,8 +32,9 @@ type appState struct {
 	knobTurnedWhilePressed    bool
 	knobDirectionWhilePressed int
 	knobDirectionErrors       int
+	ignoreKnobRelease         bool
 	disableFoobarStateLED     bool
-	foobarState		  apis.FoobarPlayerInfo
+	foobarState               apis.FoobarPlayerInfo
 }
 
 func (s *appState) reset() {
@@ -47,6 +48,7 @@ func (s *appState) reset() {
 func (s *appState) resetKnobPressState(pressed bool) {
 	s.knobPressed = pressed
 	s.knobTurnedWhilePressed = false
+	s.ignoreKnobRelease = false
 	s.knobDirectionWhilePressed = 0
 	s.knobDirectionErrors = 0
 }
@@ -83,7 +85,7 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 		log.Printf("foobar state changed: playback=%s, volume=%f\n", newState.State, newState.Volume.Current)
 		if newState.State == apis.FoobarStateOffline {
 			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
-			time.AfterFunc(1 * time.Second, func() {
+			time.AfterFunc(1*time.Second, func() {
 				cmdChan <- comm.NewSetLEDCommand(knob, '0')
 			})
 		} else {
@@ -120,11 +122,18 @@ func main() {
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
 			toggleMonitors(cmdChan, state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
-			go foobarNext(state, cmdChan)
+			if !state.knobPressed {
+				go foobarNext(state, cmdChan)
+			}
+		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
+			if state.knobPressed {
+				state.ignoreKnobRelease = true
+				go foobarStop()
+			}
 		case msg.Message == comm.ButtonPressed && msg.Source == knob:
 			state.resetKnobPressState(true)
 		case msg.Message == comm.ButtonReleased && msg.Source == knob:
-			if !state.knobTurnedWhilePressed {
+			if !state.knobTurnedWhilePressed && !state.ignoreKnobRelease {
 				go foobarTogglePause()
 			}
 			state.resetKnobPressState(false)
