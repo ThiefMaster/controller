@@ -41,4 +41,5 @@ func toggleMonitors(state *appState) {
 func lockDesktop() {
 	log.Println("locking desktop")
 	apis.LockDesktop()
+	apis.SetNumLock(false)
 }

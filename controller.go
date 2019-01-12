@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/thiefmaster/controller/apis"
 	"github.com/thiefmaster/controller/comm"
 	"github.com/thiefmaster/controller/ddc"
 	"github.com/thiefmaster/controller/wts"
@@ -35,6 +36,9 @@ func trackLockedState(state *appState, cmdChan chan<- comm.Command) {
 	for locked := range wts.RunMonitor() {
 		log.Printf("desktop locked: %v\n", locked)
 		state.desktopLocked = locked
+		if !locked {
+			apis.SetNumLock(true)
+		}
 		cmdChan <- comm.NewToggleLEDCommand(buttonTopLeft, state.desktopLocked)
 	}
 }
