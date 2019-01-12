@@ -42,7 +42,7 @@ func main() {
 	state := &appState{}
 	state.reset()
 
-	msgChan, cmdChan := comm.OpenPort("COM4")
+	msgChan, cmdChan := comm.OpenPort("COM6")
 	go trackLockedState(state, cmdChan)
 
 	for msg := range msgChan {
