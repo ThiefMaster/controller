@@ -33,6 +33,7 @@ type appState struct {
 	knobDirectionWhilePressed int
 	knobDirectionErrors       int
 	disableFoobarStateLED     bool
+	foobarState		  apis.FoobarPlayerInfo
 }
 
 func (s *appState) reset() {
@@ -73,27 +74,20 @@ func keepMonitorOffWhileLocked(state *appState) {
 }
 
 func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
-	errors := 0
-	for range time.Tick(500 * time.Millisecond) {
-		if !state.ready || state.knobPressed || state.disableFoobarStateLED {
+	for newState := range apis.SubscribeFoobarState() {
+		state.foobarState = newState
+		if state.knobTurnedWhilePressed {
 			continue
 		}
 
-		foobarState, err := apis.GetFoobarState()
-		if err != nil {
-			log.Printf("could not get foobar state: %v\n", err)
-			errors += 1
-			if errors > 2 {
-				time.Sleep(2 * time.Second)
-			}
-			continue
-		}
-
-		errors = 0
-		if foobarState.State == apis.FoobarStatePaused {
-			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
+		log.Printf("foobar state changed: playback=%s, volume=%f\n", newState.State, newState.Volume.Current)
+		if newState.State == apis.FoobarStateOffline {
+			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
+			time.AfterFunc(1 * time.Second, func() {
+				cmdChan <- comm.NewSetLEDCommand(knob, '0')
+			})
 		} else {
-			cmdChan <- comm.NewClearLEDCommand(knob)
+			cmdChan <- newCommandForFoobarState(state)
 		}
 	}
 }
@@ -108,16 +102,19 @@ func main() {
 	state.reset()
 
 	msgChan, cmdChan := comm.OpenPort("COM6")
-	go trackLockedState(state, cmdChan)
-	go keepMonitorOffWhileLocked(state)
-	go trackFoobarState(state, cmdChan)
 
 	for msg := range msgChan {
 		switch {
 		case msg.Message == comm.Ready:
-			go showFancyIntro(state, cmdChan, 75*time.Millisecond)
+			if !state.ready {
+				state.ready = true
+				go showFancyIntro(state, cmdChan, 75*time.Millisecond)
+				go trackLockedState(state, cmdChan)
+				go keepMonitorOffWhileLocked(state)
+				go trackFoobarState(state, cmdChan)
+			}
 		case !state.ready:
-			log.Println("ignoring msg during setup")
+			log.Println("ignoring input during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
 			lockDesktop()
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
@@ -131,6 +128,7 @@ func main() {
 				go foobarTogglePause()
 			}
 			state.resetKnobPressState(false)
+			cmdChan <- newCommandForFoobarState(state)
 		case msg.Message == comm.KnobTurned && msg.Source == knob:
 			if state.knobPressed {
 				if !state.knobTurnedWhilePressed {

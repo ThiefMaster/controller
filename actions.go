@@ -44,15 +44,13 @@ func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 		log.Printf("foobar next failed: %v\n", err)
 		return
 	}
-	state.disableFoobarStateLED = true
 	cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 	cmdChan <- comm.NewSetLEDCommand(buttonBottomLeft, '1')
 	time.AfterFunc(150 * time.Millisecond, func() {
 		cmdChan <- comm.NewSetLEDCommand(knob, 'G')
 		cmdChan <- comm.NewClearLEDCommand(buttonBottomLeft)
 		time.AfterFunc(150 * time.Millisecond, func() {
-			cmdChan <- comm.NewClearLEDCommand(knob)
-			state.disableFoobarStateLED = false
+			cmdChan <- newCommandForFoobarState(state)
 		})
 	})
 }
@@ -74,18 +72,14 @@ func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int)
 	}
 	log.Printf("new volume: %f\n", volume)
 	if isMin {
-		state.disableFoobarStateLED = true
 		cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 		time.AfterFunc(1 * time.Second, func() {
-			cmdChan <- comm.NewClearLEDCommand(knob)
-			state.disableFoobarStateLED = false
+			cmdChan <- newCommandForFoobarState(state)
 		})
 	} else if isMax {
-		state.disableFoobarStateLED = true
 		cmdChan <- comm.NewSetLEDCommand(knob, 'G')
 		time.AfterFunc(1 * time.Second, func() {
-			cmdChan <- comm.NewClearLEDCommand(knob)
-			state.disableFoobarStateLED = false
+			cmdChan <- newCommandForFoobarState(state)
 		})
 	}
 }
@@ -95,5 +89,13 @@ func foobarSeek(delta int) {
 	if err := apis.FoobarSeekRelative(delta * 5); err != nil {
 		log.Printf("foobar seek failed: %v\n", err)
 		return
+	}
+}
+
+func newCommandForFoobarState(state *appState) comm.Command {
+	if state.foobarState.State == apis.FoobarStatePaused {
+		return comm.NewSetLEDCommand(knob, 'Y')
+	} else {
+		return comm.NewClearLEDCommand(knob)
 	}
 }
