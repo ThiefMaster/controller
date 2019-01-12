@@ -46,20 +46,35 @@ func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 	}
 	cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 	cmdChan <- comm.NewSetLEDCommand(buttonBottomLeft, '1')
-	time.AfterFunc(150 * time.Millisecond, func() {
+	time.AfterFunc(150*time.Millisecond, func() {
 		cmdChan <- comm.NewSetLEDCommand(knob, 'G')
 		cmdChan <- comm.NewClearLEDCommand(buttonBottomLeft)
-		time.AfterFunc(150 * time.Millisecond, func() {
+		time.AfterFunc(150*time.Millisecond, func() {
 			cmdChan <- newCommandForFoobarState(state)
 		})
 	})
 }
 
-func foobarStop() {
+func foobarStop(state *appState, cmdChan chan<- comm.Command) {
 	log.Println("stopping playback")
 	if err := apis.FoobarStop(); err != nil {
 		log.Printf("foobar stop failed: %v\n", err)
+		return
 	}
+	go func() {
+		for i := 0; i < 5; i++ {
+			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		for i := 0; i < 5; i++ {
+			time.Sleep(100 * time.Millisecond)
+			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
+		}
+		cmdChan <- newCommandForFoobarState(state)
+	}()
 }
 
 func foobarTogglePause(state *appState) {
@@ -79,12 +94,12 @@ func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int)
 	log.Printf("new volume: %f\n", volume)
 	if isMin {
 		cmdChan <- comm.NewSetLEDCommand(knob, 'R')
-		time.AfterFunc(1 * time.Second, func() {
+		time.AfterFunc(1*time.Second, func() {
 			cmdChan <- newCommandForFoobarState(state)
 		})
 	} else if isMax {
 		cmdChan <- comm.NewSetLEDCommand(knob, 'G')
-		time.AfterFunc(1 * time.Second, func() {
+		time.AfterFunc(1*time.Second, func() {
 			cmdChan <- newCommandForFoobarState(state)
 		})
 	}

@@ -33,6 +33,7 @@ type appState struct {
 	knobDirectionWhilePressed int
 	knobDirectionErrors       int
 	ignoreKnobRelease         bool
+	ignoreBottomLeftRelease   bool
 	disableFoobarStateLED     bool
 	foobarState               apis.FoobarPlayerInfo
 }
@@ -42,6 +43,7 @@ func (s *appState) reset() {
 	s.desktopLocked = false
 	s.monitorsOn = true
 	s.disableFoobarStateLED = false
+	s.ignoreBottomLeftRelease = false
 	s.resetKnobPressState(false)
 }
 
@@ -122,12 +124,14 @@ func main() {
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
 			toggleMonitors(cmdChan, state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
-			if !state.knobPressed {
+			if !state.knobPressed && !state.ignoreBottomLeftRelease {
 				go foobarNext(state, cmdChan)
 			}
+			state.ignoreBottomLeftRelease = false
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
 			if state.knobPressed {
 				state.ignoreKnobRelease = true
+				state.ignoreBottomLeftRelease = true
 				go foobarStop(state, cmdChan)
 			}
 		case msg.Message == comm.ButtonPressed && msg.Source == knob:
