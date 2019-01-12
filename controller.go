@@ -128,13 +128,13 @@ func main() {
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
 			if state.knobPressed {
 				state.ignoreKnobRelease = true
-				go foobarStop()
+				go foobarStop(state, cmdChan)
 			}
 		case msg.Message == comm.ButtonPressed && msg.Source == knob:
 			state.resetKnobPressState(true)
 		case msg.Message == comm.ButtonReleased && msg.Source == knob:
 			if !state.knobTurnedWhilePressed && !state.ignoreKnobRelease {
-				go foobarTogglePause()
+				go foobarTogglePause(state)
 			}
 			state.resetKnobPressState(false)
 			cmdChan <- newCommandForFoobarState(state)

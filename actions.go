@@ -62,17 +62,16 @@ func foobarStop() {
 	}
 }
 
-func foobarTogglePause() {
+func foobarTogglePause(state *appState) {
 	log.Println("toggling pause")
-	if err := apis.FoobarTogglePause(); err != nil {
+	if err := apis.FoobarTogglePause(state.foobarState); err != nil {
 		log.Printf("foobar pause failed: %v\n", err)
-		return
 	}
 }
 
 func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int) {
 	log.Printf("adjusting volume by %+d\n", delta)
-	volume, isMin, isMax, err := apis.FoobarAdjustVolume(float64(delta))
+	volume, isMin, isMax, err := apis.FoobarAdjustVolume(state.foobarState, float64(delta))
 	if err != nil {
 		log.Printf("foobar pause failed: %v\n", err)
 		return

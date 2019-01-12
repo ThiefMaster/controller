@@ -164,11 +164,7 @@ func FoobarStop() error {
 	return nil
 }
 
-func FoobarTogglePause() error {
-	state, err := GetFoobarState()
-	if err != nil {
-		return err
-	}
+func FoobarTogglePause(state FoobarPlayerInfo) error {
 	if state.State == FoobarStateStopped {
 		if _, err := foobarRequest("POST", "/api/player/play", nil); err != nil {
 			return err
@@ -181,11 +177,7 @@ func FoobarTogglePause() error {
 	return nil
 }
 
-func FoobarAdjustVolume(delta float64) (newVolume float64, isMin, isMax bool, err error) {
-	state, err := GetFoobarState()
-	if err != nil {
-		return 0, false, false, err
-	}
+func FoobarAdjustVolume(state FoobarPlayerInfo, delta float64) (newVolume float64, isMin, isMax bool, err error) {
 	if state.Volume.Current < -50 {
 		delta *= 10
 	} else if state.Volume.Current < -20 {
