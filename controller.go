@@ -25,16 +25,18 @@ const (
 )
 
 type appState struct {
+	ready                     bool
 	desktopLocked             bool
 	monitorsOn                bool
 	knobPressed               bool
 	knobTurnedWhilePressed    bool
 	knobDirectionWhilePressed int
 	knobDirectionErrors       int
-	disableFoobarStateLED	  bool
+	disableFoobarStateLED     bool
 }
 
 func (s *appState) reset() {
+	s.ready = false
 	s.desktopLocked = false
 	s.monitorsOn = true
 	s.disableFoobarStateLED = false
@@ -73,7 +75,7 @@ func keepMonitorOffWhileLocked(state *appState) {
 func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 	errors := 0
 	for range time.Tick(500 * time.Millisecond) {
-		if state.knobPressed || state.disableFoobarStateLED {
+		if !state.ready || state.knobPressed || state.disableFoobarStateLED {
 			continue
 		}
 
@@ -113,7 +115,9 @@ func main() {
 	for msg := range msgChan {
 		switch {
 		case msg.Message == comm.Ready:
-			go showFancyIntro(cmdChan, 150*time.Millisecond)
+			go showFancyIntro(state, cmdChan, 150*time.Millisecond)
+		case !state.ready:
+			log.Println("ignoring msg during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
 			lockDesktop()
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:

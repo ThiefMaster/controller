@@ -9,7 +9,7 @@ import (
 	"github.com/thiefmaster/controller/ddc"
 )
 
-func showFancyIntro(cmdChan chan<- comm.Command, delay time.Duration) {
+func showFancyIntro(state *appState, cmdChan chan<- comm.Command, delay time.Duration) {
 	cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 	time.Sleep(delay)
 	cmdChan <- comm.NewSetLEDCommand(knob, 'G')
@@ -25,6 +25,7 @@ func showFancyIntro(cmdChan chan<- comm.Command, delay time.Duration) {
 		cmdChan <- comm.NewClearLEDCommand(i)
 		time.Sleep(delay)
 	}
+	state.ready = true
 }
 
 func toggleMonitors(cmdChan chan<- comm.Command, state *appState) {
