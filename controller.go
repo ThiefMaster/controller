@@ -115,7 +115,7 @@ func main() {
 	for msg := range msgChan {
 		switch {
 		case msg.Message == comm.Ready:
-			go showFancyIntro(state, cmdChan, 150*time.Millisecond)
+			go showFancyIntro(state, cmdChan, 75*time.Millisecond)
 		case !state.ready:
 			log.Println("ignoring msg during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
