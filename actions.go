@@ -10,17 +10,9 @@ import (
 )
 
 func showFancyIntro(state *appState, cmdChan chan<- comm.Command, delay time.Duration) {
-	cmdChan <- comm.NewSetLEDCommand(knob, 'R')
-	time.Sleep(delay)
-	cmdChan <- comm.NewSetLEDCommand(knob, 'G')
-	time.Sleep(delay)
-	cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
-	time.Sleep(delay)
 	for i := knob; i <= buttonBottomRight; i++ {
 		cmdChan <- comm.NewClearLEDCommand(i)
-		time.Sleep(delay)
 	}
-	time.Sleep(delay)
 	for i := LED5; i <= LED1; i++ {
 		cmdChan <- comm.NewClearLEDCommand(i)
 		time.Sleep(delay)
