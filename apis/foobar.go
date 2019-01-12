@@ -10,6 +10,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -48,7 +49,7 @@ func foobarRequest(method, path string, payload interface{}) ([]byte, error) {
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.SetBasicAuth("foobar", "TODO MOVE TO CONFIG")
+	req.SetBasicAuth("foobar", os.Args[1])
 	resp, err := client.Do(req)
 	if err != nil {
 		if ne, ok := err.(net.Error); ok && ne.Timeout() {

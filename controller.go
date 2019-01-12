@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/thiefmaster/controller/apis"
@@ -95,6 +97,11 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Printf("Usage: %s <foobar-beefweb-password>\n", os.Args[0])
+		return
+	}
+
 	state := &appState{}
 	state.reset()
 
