@@ -4,3 +4,5 @@ port: COM4
 foobar:
   username: foo
   password: bar
+# the path to the irc notification state file (optional)
+irc: X:/mIRC/leds.dat

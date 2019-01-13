@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"os"
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/thiefmaster/controller/apis"
@@ -103,6 +106,60 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 	}
 }
 
+func trackIRCNotifications(state *appState, cmdChan chan<- comm.Command) {
+	// notification states
+	var ns struct {
+		channel int
+		private int
+		commit  int
+		mux     sync.Mutex
+	}
+
+	go func() {
+		flag := false
+		for range time.Tick(150 * time.Millisecond) {
+			flag = !flag
+			ns.mux.Lock()
+			cmdChan <- comm.NewToggleLEDCommand(LED1, ns.commit != 0 && flag)
+			if ns.channel == 2 || ns.private != 0 {
+				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
+				cmdChan <- comm.NewToggleLEDCommand(LED4, !flag)
+				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
+			} else if ns.channel != 0 {
+				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
+				cmdChan <- comm.NewClearLEDCommand(LED4)
+			} else {
+				cmdChan <- comm.NewClearLEDCommand(LED5)
+				cmdChan <- comm.NewClearLEDCommand(LED4)
+			}
+			ns.mux.Unlock()
+		}
+	}()
+
+	for range time.Tick(500 * time.Millisecond) {
+		file, err := os.Open(state.config.IRCFile)
+		if err != nil {
+			log.Printf("could not open irc notification file: %v\n", err)
+			continue
+		}
+		reader := bufio.NewReader(file)
+		var lines [3]int
+		for i := 0; i < 3; i++ {
+			line, isPrefix, err := reader.ReadLine()
+			if err != nil || isPrefix {
+				continue
+			}
+			lines[i], _ = strconv.Atoi(string(line))
+		}
+		file.Close()
+		ns.mux.Lock()
+		ns.channel = lines[0]
+		ns.private = lines[1]
+		ns.commit = lines[2]
+		ns.mux.Unlock()
+	}
+}
+
 func main() {
 	configPath := "config.yaml"
 	if len(os.Args) > 1 {
@@ -128,6 +185,9 @@ func main() {
 				go trackLockedState(state, cmdChan)
 				go keepMonitorOffWhileLocked(state)
 				go trackFoobarState(state, cmdChan)
+				if config.IRCFile != "" {
+					go trackIRCNotifications(state, cmdChan)
+				}
 			}
 		case !state.ready:
 			log.Println("ignoring input during setup")
