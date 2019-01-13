@@ -37,6 +37,7 @@ func serializeCommand(cmd Command) string {
 }
 
 func serialWorker(port string, msgChan chan<- Message, cmdChan <-chan Command) {
+	log.Printf("opening serial port %s\n", port)
 	conn, err := serial.OpenPort(&serial.Config{Name: port, Baud: 19200})
 	if err != nil {
 		log.Fatalf("OpenPort: %v\n", err)
@@ -79,7 +80,8 @@ func serialWorker(port string, msgChan chan<- Message, cmdChan <-chan Command) {
 func OpenPort(port string) (<-chan Message, chan<- Command) {
 	msgChan := make(chan Message, 8)
 	cmdChan := make(chan Command, 8)
-	go serialWorker(port, msgChan, cmdChan)
+	serialWorker(port, msgChan, cmdChan)
+	log.Println("resetting rotaryboard")
 	cmdChan <- NewResetCommand()
 	return msgChan, cmdChan
 }

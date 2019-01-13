@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -25,6 +24,7 @@ const (
 )
 
 type appState struct {
+	config                    *appConfig
 	ready                     bool
 	desktopLocked             bool
 	monitorsOn                bool
@@ -85,7 +85,7 @@ func keepMonitorOffWhileLocked(state *appState) {
 }
 
 func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
-	for newState := range apis.SubscribeFoobarState() {
+	for newState := range apis.SubscribeFoobarState(state.config.Foobar) {
 		state.foobarState = newState
 		if state.knobTurnedWhilePressed {
 			continue
@@ -104,15 +104,20 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <foobar-beefweb-password>\n", os.Args[0])
-		return
+	configPath := "config.yaml"
+	if len(os.Args) > 1 {
+		configPath = os.Args[1]
 	}
 
-	state := &appState{}
+	config := &appConfig{}
+	if err := config.load(configPath); err != nil {
+		log.Fatalln(err)
+	}
+
+	state := &appState{config: config}
 	state.reset()
 
-	msgChan, cmdChan := comm.OpenPort("COM6")
+	msgChan, cmdChan := comm.OpenPort(config.Port)
 
 	for msg := range msgChan {
 		switch {
@@ -170,7 +175,7 @@ func main() {
 						})
 					}
 				} else {
-					go foobarSeek(msg.Value)
+					go foobarSeek(state, msg.Value)
 				}
 			} else {
 				go foobarAdjustVolume(state, cmdChan, msg.Value)

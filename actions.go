@@ -52,7 +52,7 @@ func lockDesktop() {
 
 func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 	log.Println("playing next song")
-	if err := apis.FoobarNext(); err != nil {
+	if err := apis.FoobarNext(state.config.Foobar); err != nil {
 		log.Printf("foobar next failed: %v\n", err)
 		return
 	}
@@ -69,7 +69,7 @@ func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 
 func foobarStop(state *appState, cmdChan chan<- comm.Command) {
 	log.Println("stopping playback")
-	if err := apis.FoobarStop(); err != nil {
+	if err := apis.FoobarStop(state.config.Foobar); err != nil {
 		log.Printf("foobar stop failed: %v\n", err)
 		return
 	}
@@ -91,14 +91,14 @@ func foobarStop(state *appState, cmdChan chan<- comm.Command) {
 
 func foobarTogglePause(state *appState) {
 	log.Println("toggling pause")
-	if err := apis.FoobarTogglePause(state.foobarState); err != nil {
+	if err := apis.FoobarTogglePause(state.foobarState, state.config.Foobar); err != nil {
 		log.Printf("foobar pause failed: %v\n", err)
 	}
 }
 
 func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int) {
 	log.Printf("adjusting volume by %+d\n", delta)
-	volume, isMin, isMax, err := apis.FoobarAdjustVolume(state.foobarState, float64(delta))
+	volume, isMin, isMax, err := apis.FoobarAdjustVolume(state.foobarState, float64(delta), state.config.Foobar)
 	if err != nil {
 		log.Printf("foobar pause failed: %v\n", err)
 		return
@@ -117,9 +117,9 @@ func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int)
 	}
 }
 
-func foobarSeek(delta int) {
+func foobarSeek(state *appState, delta int) {
 	log.Printf("seeking %+d", delta)
-	if err := apis.FoobarSeekRelative(delta * 5); err != nil {
+	if err := apis.FoobarSeekRelative(delta * 5, state.config.Foobar); err != nil {
 		log.Printf("foobar seek failed: %v\n", err)
 		return
 	}

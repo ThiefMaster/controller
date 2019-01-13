@@ -1,0 +1,6 @@
+# the serial port where the rotaryboard can be found
+port: COM4
+# the credentials to access the foobar2000/beefweb api
+foobar:
+  username: foo
+  password: bar

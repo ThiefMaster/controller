@@ -28,6 +28,11 @@ const (
 	FoobarStatePaused  = "paused"
 )
 
+type FoobarCredentials struct {
+	Username string
+	Password string
+}
+
 type foobarPlayerJSON struct {
 	Player FoobarPlayerInfo `json:"player"`
 }
@@ -41,7 +46,7 @@ type FoobarPlayerInfo struct {
 	} `json:"volume"`
 }
 
-func newRequest(method, path string, body io.Reader) (*http.Request, error) {
+func newRequest(method, path string, body io.Reader, credentials FoobarCredentials) (*http.Request, error) {
 	req, err := http.NewRequest(method, "http://localhost:48321"+path, body)
 	if err != nil {
 		return nil, err
@@ -49,11 +54,11 @@ func newRequest(method, path string, body io.Reader) (*http.Request, error) {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.SetBasicAuth("foobar", os.Args[1])
+	req.SetBasicAuth(credentials.Username, credentials.Password)
 	return req, nil
 }
 
-func foobarRequest(method, path string, payload interface{}) ([]byte, error) {
+func foobarRequest(method, path string, payload interface{}, credentials FoobarCredentials) ([]byte, error) {
 	var reqBody io.Reader
 	if payload != nil {
 		jsonData, err := json.Marshal(payload)
@@ -62,7 +67,7 @@ func foobarRequest(method, path string, payload interface{}) ([]byte, error) {
 		}
 		reqBody = bytes.NewBuffer(jsonData)
 	}
-	req, err := newRequest(method, path, reqBody)
+	req, err := newRequest(method, path, reqBody, credentials)
 	if err != nil {
 		return nil, fmt.Errorf("newRequest failed: %v", err)
 	}
@@ -85,8 +90,8 @@ func foobarRequest(method, path string, payload interface{}) ([]byte, error) {
 	return body, nil
 }
 
-func subscribeFoobarState(eventChan chan<- FoobarPlayerInfo) {
-	req, err := newRequest("GET", "/api/query/updates?player=true", nil)
+func subscribeFoobarState(eventChan chan<- FoobarPlayerInfo, credentials FoobarCredentials) {
+	req, err := newRequest("GET", "/api/query/updates?player=true", nil, credentials)
 	if err != nil {
 		log.Fatalf("newRequest failed: %v", err)
 	}
@@ -95,14 +100,14 @@ func subscribeFoobarState(eventChan chan<- FoobarPlayerInfo) {
 	if err != nil {
 		log.Printf("subscribe failed: %v\n", err)
 		time.Sleep(1 * time.Second)
-		defer subscribeFoobarState(eventChan)
+		defer subscribeFoobarState(eventChan, credentials)
 		return
 	}
 
 	stream.InitialRetryDelay = 500 * time.Millisecond
 	stream.MaxRetryDelay = 5 * time.Second
 	stream.Logger = log.New(os.Stderr, "", log.LstdFlags)
-	lastState, err := GetFoobarState()
+	lastState, err := GetFoobarState(credentials)
 	if err != nil {
 		log.Printf("could not get initial foobar state: %v\n", err)
 	}
@@ -132,15 +137,15 @@ func subscribeFoobarState(eventChan chan<- FoobarPlayerInfo) {
 	}
 }
 
-func SubscribeFoobarState() <-chan FoobarPlayerInfo {
+func SubscribeFoobarState(credentials FoobarCredentials) <-chan FoobarPlayerInfo {
 	eventChan := make(chan FoobarPlayerInfo)
-	go subscribeFoobarState(eventChan)
+	go subscribeFoobarState(eventChan, credentials)
 	return eventChan
 }
 
-func GetFoobarState() (FoobarPlayerInfo, error) {
+func GetFoobarState(credentials FoobarCredentials) (FoobarPlayerInfo, error) {
 	var status foobarPlayerJSON
-	body, err := foobarRequest("GET", "/api/player", nil)
+	body, err := foobarRequest("GET", "/api/player", nil, credentials)
 	if err != nil {
 		return status.Player, err
 	}
@@ -150,34 +155,34 @@ func GetFoobarState() (FoobarPlayerInfo, error) {
 	return status.Player, nil
 }
 
-func FoobarNext() error {
-	if _, err := foobarRequest("POST", "/api/player/next", nil); err != nil {
+func FoobarNext(credentials FoobarCredentials) error {
+	if _, err := foobarRequest("POST", "/api/player/next", nil, credentials); err != nil {
 		return err
 	}
 	return nil
 }
 
-func FoobarStop() error {
-	if _, err := foobarRequest("POST", "/api/player/stop", nil); err != nil {
+func FoobarStop(credentials FoobarCredentials) error {
+	if _, err := foobarRequest("POST", "/api/player/stop", nil, credentials); err != nil {
 		return err
 	}
 	return nil
 }
 
-func FoobarTogglePause(state FoobarPlayerInfo) error {
+func FoobarTogglePause(state FoobarPlayerInfo, credentials FoobarCredentials) error {
 	if state.State == FoobarStateStopped {
-		if _, err := foobarRequest("POST", "/api/player/play", nil); err != nil {
+		if _, err := foobarRequest("POST", "/api/player/play", nil, credentials); err != nil {
 			return err
 		}
 		return nil
 	}
-	if _, err := foobarRequest("POST", "/api/player/pause/toggle", nil); err != nil {
+	if _, err := foobarRequest("POST", "/api/player/pause/toggle", nil, credentials); err != nil {
 		return err
 	}
 	return nil
 }
 
-func FoobarAdjustVolume(state FoobarPlayerInfo, delta float64) (newVolume float64, isMin, isMax bool, err error) {
+func FoobarAdjustVolume(state FoobarPlayerInfo, delta float64, credentials FoobarCredentials) (newVolume float64, isMin, isMax bool, err error) {
 	if state.Volume.Current < -50 {
 		delta *= 10
 	} else if state.Volume.Current < -20 {
@@ -193,19 +198,19 @@ func FoobarAdjustVolume(state FoobarPlayerInfo, delta float64) (newVolume float6
 	}{
 		Volume: newVolume,
 	}
-	if _, err := foobarRequest("POST", "/api/player", payload); err != nil {
+	if _, err := foobarRequest("POST", "/api/player", payload, credentials); err != nil {
 		return 0, false, false, err
 	}
 	return payload.Volume, payload.Volume == state.Volume.Min, payload.Volume == state.Volume.Max, nil
 }
 
-func FoobarSeekRelative(delta int) error {
+func FoobarSeekRelative(delta int, credentials FoobarCredentials) error {
 	payload := struct {
 		RelativePosition int `json:"relativePosition"`
 	}{
 		RelativePosition: delta,
 	}
-	if _, err := foobarRequest("POST", "/api/player", payload); err != nil {
+	if _, err := foobarRequest("POST", "/api/player", payload, credentials); err != nil {
 		return err
 	}
 	return nil
