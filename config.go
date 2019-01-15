@@ -15,6 +15,7 @@ type appConfig struct {
 	Port    string
 	Foobar  apis.FoobarCredentials
 	IRCFile string `yaml:"irc"`
+	Numlock bool
 }
 
 func (c *appConfig) load(path string) error {

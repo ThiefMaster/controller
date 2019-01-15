@@ -44,10 +44,12 @@ func toggleMonitors(cmdChan chan<- comm.Command, state *appState) {
 	cmdChan <- comm.NewToggleLEDCommand(buttonBottomRight, !state.monitorsOn)
 }
 
-func lockDesktop() {
+func lockDesktop(state *appState) {
 	log.Println("locking desktop")
 	apis.LockDesktop()
-	apis.SetNumLock(false)
+	if state.config.Numlock {
+		apis.SetNumLock(false)
+	}
 }
 
 func foobarNext(state *appState, cmdChan chan<- comm.Command) {

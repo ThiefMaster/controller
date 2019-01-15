@@ -69,7 +69,7 @@ func trackLockedState(state *appState, cmdChan chan<- comm.Command) {
 	for locked := range wts.RunMonitor() {
 		log.Printf("desktop locked: %v\n", locked)
 		state.desktopLocked = locked
-		if !locked {
+		if !locked && state.config.Numlock {
 			apis.SetNumLock(true)
 		}
 		cmdChan <- comm.NewToggleLEDCommand(buttonTopLeft, state.desktopLocked)
@@ -193,7 +193,7 @@ func main() {
 			log.Println("ignoring input during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
 			state.buttonTopLeftPressed = false
-			lockDesktop()
+			lockDesktop(state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
 			state.buttonBottomRightPressed = false
 			toggleMonitors(cmdChan, state)
