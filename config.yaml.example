@@ -2,6 +2,8 @@
 port: COM4
 # the credentials to access the foobar2000/beefweb api
 foobar:
+  url: http://localhost:8880
+  # if authentication is enabled:
   username: foo
   password: bar
 # the path to the irc notification state file (optional)

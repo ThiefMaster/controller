@@ -37,8 +37,8 @@ func (c *appConfig) validate() error {
 	if c.Port == "" {
 		return errors.New("no port specified")
 	}
-	if c.Foobar.Username == "" || c.Foobar.Password == "" {
-		return errors.New("no foobar credentials specified")
+	if c.Foobar.BaseURL == "" {
+		return errors.New("no foobar url specified")
 	}
 	if c.IRCFile != "" {
 		if stat, err := os.Stat(c.IRCFile); err != nil {

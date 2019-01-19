@@ -29,6 +29,7 @@ const (
 )
 
 type FoobarCredentials struct {
+	BaseURL  string `yaml:"url"`
 	Username string
 	Password string
 }
@@ -47,14 +48,16 @@ type FoobarPlayerInfo struct {
 }
 
 func newRequest(method, path string, body io.Reader, credentials FoobarCredentials) (*http.Request, error) {
-	req, err := http.NewRequest(method, "http://localhost:48321"+path, body)
+	req, err := http.NewRequest(method, credentials.BaseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	req.SetBasicAuth(credentials.Username, credentials.Password)
+	if credentials.Username != "" && credentials.Password != "" {
+		req.SetBasicAuth(credentials.Username, credentials.Password)
+	}
 	return req, nil
 }
 
