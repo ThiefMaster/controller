@@ -26,12 +26,35 @@ const (
 	LED1
 )
 
+type buttonState struct {
+	knob        bool
+	topLeft     bool
+	bottomLeft  bool
+	bottomRight bool
+}
+
+func (b *buttonState) handleMessage(msg comm.Message) {
+	if msg.Message != comm.ButtonPressed && msg.Message != comm.ButtonReleased {
+		return
+	}
+	pressed := msg.Message == comm.ButtonPressed
+	if msg.Source == knob {
+		b.knob = pressed
+	} else if msg.Source == buttonTopLeft {
+		b.topLeft = pressed
+	} else if msg.Source == buttonBottomLeft {
+		b.bottomLeft = pressed
+	} else if msg.Source == buttonBottomRight {
+		b.bottomRight = pressed
+	}
+
+}
+
 type appState struct {
 	config                    *appConfig
 	ready                     bool
 	desktopLocked             bool
 	monitorsOn                bool
-	knobPressed               bool
 	knobTurnedWhilePressed    bool
 	knobDirectionWhilePressed int
 	knobDirectionErrors       int
@@ -39,10 +62,7 @@ type appState struct {
 	ignoreBottomLeftRelease   bool
 	disableFoobarStateLED     bool
 	foobarState               apis.FoobarPlayerInfo
-	// TODO: refactor this to properly track all buttons without manually implementing it for each button
-	buttonTopLeftPressed     bool
-	buttonBottomLeftPressed  bool
-	buttonBottomRightPressed bool
+	buttonState               buttonState
 }
 
 func (s *appState) reset() {
@@ -51,14 +71,10 @@ func (s *appState) reset() {
 	s.monitorsOn = true
 	s.disableFoobarStateLED = false
 	s.ignoreBottomLeftRelease = false
-	s.buttonTopLeftPressed = false
-	s.buttonBottomLeftPressed = false
-	s.buttonBottomRightPressed = false
 	s.resetKnobPressState(false)
 }
 
 func (s *appState) resetKnobPressState(pressed bool) {
-	s.knobPressed = pressed
 	s.knobTurnedWhilePressed = false
 	s.ignoreKnobRelease = false
 	s.knobDirectionWhilePressed = 0
@@ -177,6 +193,9 @@ func main() {
 	msgChan, cmdChan := comm.OpenPort(config.Port)
 
 	for msg := range msgChan {
+		if state.ready {
+			state.buttonState.handleMessage(msg)
+		}
 		switch {
 		case msg.Message == comm.Ready:
 			if !state.ready {
@@ -192,20 +211,16 @@ func main() {
 		case !state.ready:
 			log.Println("ignoring input during setup")
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
-			state.buttonTopLeftPressed = false
 			lockDesktop(state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
-			state.buttonBottomRightPressed = false
 			toggleMonitors(cmdChan, state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
-			state.buttonBottomLeftPressed = false
-			if !state.knobPressed && !state.ignoreBottomLeftRelease {
+			if !state.buttonState.knob && !state.ignoreBottomLeftRelease {
 				go foobarNext(state, cmdChan)
 			}
 			state.ignoreBottomLeftRelease = false
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
-			state.buttonBottomLeftPressed = true
-			if state.knobPressed {
+			if state.buttonState.knob {
 				state.ignoreKnobRelease = true
 				state.ignoreBottomLeftRelease = true
 				go foobarStop(state, cmdChan)
@@ -219,7 +234,7 @@ func main() {
 			state.resetKnobPressState(false)
 			cmdChan <- newCommandForFoobarState(state)
 		case msg.Message == comm.KnobTurned && msg.Source == knob:
-			if state.knobPressed {
+			if state.buttonState.knob {
 				if !state.knobTurnedWhilePressed {
 					log.Println("knob turning while pressed")
 					state.knobDirectionWhilePressed = signum(msg.Value)
@@ -240,13 +255,9 @@ func main() {
 			} else {
 				go foobarAdjustVolume(state, cmdChan, msg.Value)
 			}
-		case msg.Message == comm.ButtonPressed && msg.Source == buttonTopLeft:
-			state.buttonTopLeftPressed = true
-		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomRight:
-			state.buttonBottomRightPressed = true
 		}
 
-		if state.buttonTopLeftPressed && state.buttonBottomLeftPressed && state.buttonBottomRightPressed {
+		if state.buttonState.topLeft && state.buttonState.bottomLeft && state.buttonState.bottomRight {
 			log.Println("shutdown requested")
 			break
 		}
