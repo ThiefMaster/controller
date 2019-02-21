@@ -176,6 +176,43 @@ func trackIRCNotifications(state *appState, cmdChan chan<- comm.Command) {
 	}
 }
 
+func trackMattermostNotifications(state *appState, cmdChan chan<- comm.Command) {
+	// notification states
+	var ns struct {
+		messages bool
+		mentions bool
+		mux      sync.Mutex
+	}
+
+	go func() {
+		flag := false
+		for range time.Tick(150 * time.Millisecond) {
+			flag = !flag
+			ns.mux.Lock()
+			if ns.mentions {
+				cmdChan <- comm.NewToggleLEDCommand(LED2, flag)
+				cmdChan <- comm.NewToggleLEDCommand(LED3, !flag)
+				cmdChan <- comm.NewToggleLEDCommand(LED2, flag)
+			} else if ns.messages {
+				cmdChan <- comm.NewToggleLEDCommand(LED2, flag)
+				cmdChan <- comm.NewClearLEDCommand(LED3)
+			} else {
+				cmdChan <- comm.NewClearLEDCommand(LED2)
+				cmdChan <- comm.NewClearLEDCommand(LED3)
+			}
+			ns.mux.Unlock()
+		}
+	}()
+
+	for newState := range apis.SubscribeMattermostState(state.config.Mattermost) {
+		log.Printf("mattermost state changed: messages=%v, mentions=%v\n", newState.HasMessages, newState.HasMentions)
+		ns.mux.Lock()
+		ns.messages = newState.HasMessages
+		ns.mentions = newState.HasMentions
+		ns.mux.Unlock()
+	}
+}
+
 func main() {
 	configPath := "config.yaml"
 	if len(os.Args) > 1 {
@@ -206,6 +243,9 @@ func main() {
 				go trackFoobarState(state, cmdChan)
 				if config.IRCFile != "" {
 					go trackIRCNotifications(state, cmdChan)
+				}
+				if config.Mattermost.ServerURL != "" {
+					go trackMattermostNotifications(state, cmdChan)
 				}
 			}
 		case !state.ready:

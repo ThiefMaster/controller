@@ -6,6 +6,12 @@ foobar:
   # if authentication is enabled:
   username: foo
   password: bar
+# the credentials/data to access mattermost
+mattermost:
+  url: http://localhost:8065
+  token: topsecret
+  team: myteam
+  channel: mychannel
 # the path to the irc notification state file (optional)
 irc: X:/mIRC/leds.dat
 # whether to disable numlock while locked
