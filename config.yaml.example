@@ -14,5 +14,10 @@ mattermost:
   channel: mychannel
 # the path to the irc notification state file (optional)
 irc: X:/mIRC/leds.dat
+# the credentials/data to access nothub
+nothub:
+  url: https://localhost:5000
+  username: foo
+  password: bar
 # whether to disable numlock while locked
 numlock: true

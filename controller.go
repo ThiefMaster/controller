@@ -122,6 +122,12 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 	}
 }
 
+func trackNotHubState(state *appState, cmdChan chan<- comm.Command) {
+	for newState := range apis.SubscribeNotHubState(state.config.NotHub) {
+		log.Printf("nothub state changed: %#v\n", newState)
+	}
+}
+
 func trackIRCNotifications(state *appState, cmdChan chan<- comm.Command) {
 	// notification states
 	var ns struct {
@@ -241,6 +247,9 @@ func main() {
 				go trackLockedState(state, cmdChan)
 				go keepMonitorOffWhileLocked(state)
 				go trackFoobarState(state, cmdChan)
+				if config.NotHub.BaseURL != "" {
+					go trackNotHubState(state, cmdChan)
+				}
 				if config.IRCFile != "" {
 					go trackIRCNotifications(state, cmdChan)
 				}
