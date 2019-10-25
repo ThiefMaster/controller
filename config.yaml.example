@@ -12,8 +12,6 @@ mattermost:
   token: topsecret
   team: myteam
   channel: mychannel
-# the path to the irc notification state file (optional)
-irc: X:/mIRC/leds.dat
 # the credentials/data to access nothub
 nothub:
   url: https://localhost:5000

@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"log"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -123,62 +121,30 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 }
 
 func trackNotHubState(state *appState, cmdChan chan<- comm.Command) {
-	for newState := range apis.SubscribeNotHubState(state.config.NotHub) {
-		log.Printf("nothub state changed: %#v\n", newState)
-	}
-}
-
-func trackIRCNotifications(state *appState, cmdChan chan<- comm.Command) {
-	// notification states
-	var ns struct {
-		channel int
-		private int
-		commit  int
-		mux     sync.Mutex
-	}
+	var nhs apis.NotHubState
 
 	go func() {
 		flag := false
 		for range time.Tick(150 * time.Millisecond) {
 			flag = !flag
-			ns.mux.Lock()
-			cmdChan <- comm.NewToggleLEDCommand(LED1, ns.commit != 0 && flag)
-			if ns.channel == 2 || ns.private != 0 {
+			cmdChan <- comm.NewToggleLEDCommand(LED1, nhs.Commit && flag)
+			if nhs.ChanHL || nhs.PrivMsg {
 				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
 				cmdChan <- comm.NewToggleLEDCommand(LED4, !flag)
 				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
-			} else if ns.channel != 0 {
+			} else if nhs.ChanMsg {
 				cmdChan <- comm.NewToggleLEDCommand(LED5, flag)
 				cmdChan <- comm.NewClearLEDCommand(LED4)
 			} else {
 				cmdChan <- comm.NewClearLEDCommand(LED5)
 				cmdChan <- comm.NewClearLEDCommand(LED4)
 			}
-			ns.mux.Unlock()
 		}
 	}()
 
-	for range time.Tick(500 * time.Millisecond) {
-		file, err := os.Open(state.config.IRCFile)
-		if err != nil {
-			log.Printf("could not open irc notification file: %v\n", err)
-			continue
-		}
-		reader := bufio.NewReader(file)
-		var lines [3]int
-		for i := 0; i < 3; i++ {
-			line, isPrefix, err := reader.ReadLine()
-			if err != nil || isPrefix {
-				continue
-			}
-			lines[i], _ = strconv.Atoi(string(line))
-		}
-		file.Close()
-		ns.mux.Lock()
-		ns.channel = lines[0]
-		ns.private = lines[1]
-		ns.commit = lines[2]
-		ns.mux.Unlock()
+	for newState := range apis.SubscribeNotHubState(state.config.NotHub) {
+		log.Printf("nothub state changed: %#v\n", newState)
+		nhs = newState
 	}
 }
 
@@ -249,9 +215,6 @@ func main() {
 				go trackFoobarState(state, cmdChan)
 				if config.NotHub.BaseURL != "" {
 					go trackNotHubState(state, cmdChan)
-				}
-				if config.IRCFile != "" {
-					go trackIRCNotifications(state, cmdChan)
 				}
 				if config.Mattermost.ServerURL != "" {
 					go trackMattermostNotifications(state, cmdChan)

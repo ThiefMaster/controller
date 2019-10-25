@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 
 	"github.com/thiefmaster/controller/apis"
 	"gopkg.in/yaml.v2"
@@ -16,7 +15,6 @@ type appConfig struct {
 	Foobar     apis.HTTPCredentials
 	NotHub     apis.HTTPCredentials
 	Mattermost apis.MattermostSettings
-	IRCFile    string `yaml:"irc"`
 	Numlock    bool
 }
 
@@ -51,13 +49,6 @@ func (c *appConfig) validate() error {
 		}
 		if c.Mattermost.ChannelName == "" {
 			return errors.New("no mattermost chammel specified")
-		}
-	}
-	if c.IRCFile != "" {
-		if stat, err := os.Stat(c.IRCFile); err != nil {
-			return fmt.Errorf("could not stat irc state file: %v", err)
-		} else if !stat.Mode().IsRegular() {
-			return errors.New("irc state file is not a regular file")
 		}
 	}
 	return nil
