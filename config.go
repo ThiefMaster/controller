@@ -13,7 +13,7 @@ import (
 
 type appConfig struct {
 	Port       string
-	Foobar     apis.FoobarCredentials
+	Foobar     apis.HTTPCredentials
 	Mattermost apis.MattermostSettings
 	IRCFile    string `yaml:"irc"`
 	Numlock    bool
