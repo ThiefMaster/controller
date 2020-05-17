@@ -17,5 +17,7 @@ nothub:
   url: https://localhost:5000
   username: foo
   password: bar
+# the port on which to run the TubeRemote websocket listener
+tubeRemotePort: 12116
 # whether to disable numlock while locked
 numlock: true

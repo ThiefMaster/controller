@@ -135,3 +135,26 @@ func newCommandForFoobarState(state *appState) comm.Command {
 		return comm.NewClearLEDCommand(knob)
 	}
 }
+
+func tubeRemoteTogglePause() {
+	log.Println("toggling youtube pause")
+	apis.TubeRemoteTogglePause()
+}
+
+func tubeRemoteAdjustVolume(delta int) {
+	log.Printf("adjusting youtube volume by %+d\n", delta)
+	apis.TubeRemoteAdjustVolume(delta * 2)
+}
+
+func tubeRemoteSeek(delta int) {
+	log.Printf("seeking %+d on youtube\n", delta)
+	apis.TubeRemoteSeek(delta * 5)
+}
+
+func newCommandForTubeRemoteState(state *appState) comm.Command {
+	if state.tubeRemoteState.Available && !state.tubeRemoteState.Playing {
+		return comm.NewSetLEDCommand(knob, 'Y')
+	} else {
+		return comm.NewClearLEDCommand(knob)
+	}
+}

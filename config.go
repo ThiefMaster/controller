@@ -11,11 +11,12 @@ import (
 )
 
 type appConfig struct {
-	Port       string
-	Foobar     apis.HTTPCredentials
-	NotHub     apis.HTTPCredentials
-	Mattermost apis.MattermostSettings
-	Numlock    bool
+	Port           string
+	Foobar         apis.HTTPCredentials
+	NotHub         apis.HTTPCredentials
+	Mattermost     apis.MattermostSettings
+	TubeRemotePort int `yaml:"tubeRemotePort"`
+	Numlock        bool
 }
 
 func (c *appConfig) load(path string) error {
@@ -50,6 +51,9 @@ func (c *appConfig) validate() error {
 		if c.Mattermost.ChannelName == "" {
 			return errors.New("no mattermost chammel specified")
 		}
+	}
+	if c.TubeRemotePort != 0 && (c.TubeRemotePort < 1024 || c.TubeRemotePort > 65535) {
+		return errors.New("invalid tuberemote port specified")
 	}
 	return nil
 }

@@ -25,10 +25,12 @@ const (
 )
 
 type buttonState struct {
-	knob        bool
-	topLeft     bool
-	bottomLeft  bool
-	bottomRight bool
+	knob               bool
+	topLeft            bool
+	bottomLeft         bool
+	bottomRight        bool
+	bottomLeftStart    time.Time
+	bottomLeftDuration time.Duration
 }
 
 func (b *buttonState) handleMessage(msg comm.Message) {
@@ -41,11 +43,22 @@ func (b *buttonState) handleMessage(msg comm.Message) {
 	} else if msg.Source == buttonTopLeft {
 		b.topLeft = pressed
 	} else if msg.Source == buttonBottomLeft {
+		if !b.bottomLeft && pressed {
+			b.bottomLeftStart = time.Now()
+		} else if b.bottomLeft && !pressed {
+			b.bottomLeftStart = time.Time{}
+		}
 		b.bottomLeft = pressed
 	} else if msg.Source == buttonBottomRight {
 		b.bottomRight = pressed
 	}
+}
 
+func (b *buttonState) getButtonBottomLeftDuration() time.Duration {
+	if !b.bottomLeft {
+		return 0
+	}
+	return time.Now().Sub(b.bottomLeftStart)
 }
 
 type appState struct {
@@ -60,6 +73,8 @@ type appState struct {
 	ignoreBottomLeftRelease   bool
 	disableFoobarStateLED     bool
 	foobarState               apis.FoobarPlayerInfo
+	tubeRemoteState           apis.TubeRemoteState
+	tubeMode                  bool
 	buttonState               buttonState
 }
 
@@ -109,6 +124,11 @@ func trackFoobarState(state *appState, cmdChan chan<- comm.Command) {
 		}
 
 		log.Printf("foobar state changed: playback=%s, volume=%f\n", newState.State, newState.Volume.Current)
+
+		if state.tubeMode {
+			continue
+		}
+
 		if newState.State == apis.FoobarStateOffline {
 			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 			time.AfterFunc(1*time.Second, func() {
@@ -185,6 +205,65 @@ func trackMattermostNotifications(state *appState, cmdChan chan<- comm.Command) 
 	}
 }
 
+func toggleTubeMode(state *appState, cmdChan chan<- comm.Command, enabled bool) {
+	state.tubeMode = enabled
+	cmdChan <- comm.NewToggleLEDCommand(buttonBottomLeft, state.tubeMode)
+	if enabled {
+		cmdChan <- newCommandForTubeRemoteState(state)
+	} else {
+		cmdChan <- newCommandForFoobarState(state)
+	}
+}
+
+func runTubeRemote(state *appState, cmdChan chan<- comm.Command) {
+	for newState := range apis.RunTubeRemote(state.config.TubeRemotePort) {
+		oldState := state.tubeRemoteState
+		state.tubeRemoteState = newState
+		log.Printf("youtube state changed: %#v\n", newState)
+
+		if !state.tubeMode {
+			continue
+		}
+
+		if newState.ActionFailed {
+			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
+			time.AfterFunc(1*time.Second, func() {
+				cmdChan <- newCommandForTubeRemoteState(state)
+			})
+			continue
+		} else if !newState.Available {
+			// if we came here right after action-failed, then changing the LED
+			// would happen too early and we have the timer to take care of it
+			if !oldState.ActionFailed {
+				cmdChan <- newCommandForTubeRemoteState(state)
+			}
+			continue
+		}
+
+		if ((!oldState.Playing && newState.Playing) || oldState.Volume > 0) && newState.Volume == 0 {
+			// show red when we just went silent or started playing while being silent
+			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
+			time.AfterFunc(1*time.Second, func() {
+				cmdChan <- newCommandForTubeRemoteState(state)
+			})
+		} else if oldState.Available && oldState.Volume != 100 && newState.Volume == 100 {
+			// show green if we changed the volume to max
+			cmdChan <- comm.NewSetLEDCommand(knob, 'G')
+			time.AfterFunc(1*time.Second, func() {
+				cmdChan <- newCommandForTubeRemoteState(state)
+			})
+		} else if oldState.Available && oldState.Playing && !newState.Playing {
+			// temporarily show yellow if we just paused
+			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
+			time.AfterFunc(1*time.Second, func() {
+				cmdChan <- newCommandForTubeRemoteState(state)
+			})
+		} else {
+			cmdChan <- newCommandForTubeRemoteState(state)
+		}
+	}
+}
+
 func main() {
 	configPath := "config.yaml"
 	if len(os.Args) > 1 {
@@ -219,6 +298,9 @@ func main() {
 				if config.Mattermost.ServerURL != "" {
 					go trackMattermostNotifications(state, cmdChan)
 				}
+				if config.TubeRemotePort != 0 {
+					go runTubeRemote(state, cmdChan)
+				}
 			}
 		case !state.ready:
 			log.Println("ignoring input during setup")
@@ -228,23 +310,42 @@ func main() {
 			toggleMonitors(cmdChan, state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
 			if !state.buttonState.knob && !state.ignoreBottomLeftRelease {
-				go foobarNext(state, cmdChan)
+				if state.tubeMode {
+					toggleTubeMode(state, cmdChan, false)
+				} else {
+					go foobarNext(state, cmdChan)
+				}
 			}
 			state.ignoreBottomLeftRelease = false
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
-			if state.buttonState.knob {
+			if state.tubeMode {
+				// nothing to do here; we turn off tube mode on release
+			} else if state.buttonState.knob {
 				state.ignoreKnobRelease = true
 				state.ignoreBottomLeftRelease = true
 				go foobarStop(state, cmdChan)
+			} else if config.TubeRemotePort != 0 {
+				time.AfterFunc(250*time.Millisecond, func() {
+					if state.buttonState.getButtonBottomLeftDuration() > 250*time.Millisecond {
+						state.ignoreBottomLeftRelease = true
+						toggleTubeMode(state, cmdChan, true)
+					}
+				})
 			}
 		case msg.Message == comm.ButtonPressed && msg.Source == knob:
 			state.resetKnobPressState(true)
 		case msg.Message == comm.ButtonReleased && msg.Source == knob:
-			if !state.knobTurnedWhilePressed && !state.ignoreKnobRelease {
-				go foobarTogglePause(state)
+			if state.tubeMode {
+				if !state.knobTurnedWhilePressed && !state.ignoreKnobRelease {
+					go tubeRemoteTogglePause()
+				}
+			} else {
+				if !state.knobTurnedWhilePressed && !state.ignoreKnobRelease {
+					go foobarTogglePause(state)
+				}
+				state.resetKnobPressState(false)
+				cmdChan <- newCommandForFoobarState(state)
 			}
-			state.resetKnobPressState(false)
-			cmdChan <- newCommandForFoobarState(state)
 		case msg.Message == comm.KnobTurned && msg.Source == knob:
 			if state.buttonState.knob {
 				if !state.knobTurnedWhilePressed {
@@ -262,10 +363,18 @@ func main() {
 						})
 					}
 				} else {
-					go foobarSeek(state, msg.Value)
+					if state.tubeMode {
+						go tubeRemoteSeek(msg.Value)
+					} else {
+						go foobarSeek(state, msg.Value)
+					}
 				}
 			} else {
-				go foobarAdjustVolume(state, cmdChan, msg.Value)
+				if state.tubeMode {
+					go tubeRemoteAdjustVolume(msg.Value)
+				} else {
+					go foobarAdjustVolume(state, cmdChan, msg.Value)
+				}
 			}
 		}
 
