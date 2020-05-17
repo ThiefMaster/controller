@@ -20,6 +20,9 @@ func showFancyIntro(cmdChan chan<- comm.Command, delay time.Duration) {
 }
 
 func showFancyOutro(cmdChan chan<- comm.Command) {
+	for i := knob; i <= buttonBottomRight; i++ {
+		cmdChan <- comm.NewClearLEDCommand(i)
+	}
 	for j := 0; j < 2; j++ {
 		for i := LED5; i <= LED1; i++ {
 			cmdChan <- comm.NewSetLEDCommand(i, '1')
