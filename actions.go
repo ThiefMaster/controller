@@ -103,7 +103,7 @@ func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int)
 	log.Printf("adjusting volume by %+d\n", delta)
 	volume, isMin, isMax, err := apis.FoobarAdjustVolume(state.foobarState, float64(delta), state.config.Foobar)
 	if err != nil {
-		log.Printf("foobar pause failed: %v\n", err)
+		log.Printf("foobar volume change failed: %v\n", err)
 		return
 	}
 	log.Printf("new volume: %f\n", volume)
