@@ -62,10 +62,8 @@ func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 		return
 	}
 	cmdChan <- comm.NewSetLEDCommand(knob, 'R')
-	cmdChan <- comm.NewSetLEDCommand(buttonBottomLeft, '1')
 	time.AfterFunc(150*time.Millisecond, func() {
 		cmdChan <- comm.NewSetLEDCommand(knob, 'G')
-		cmdChan <- comm.NewClearLEDCommand(buttonBottomLeft)
 		time.AfterFunc(150*time.Millisecond, func() {
 			cmdChan <- newCommandForFoobarState(state)
 		})
