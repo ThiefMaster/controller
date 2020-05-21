@@ -312,13 +312,15 @@ func main() {
 			}
 			state.ignoreBottomLeftRelease = false
 		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomLeft:
-			if state.tubeMode {
-				// nothing to do here; we turn off tube mode on release
-			} else if state.buttonState.knob {
+			if state.buttonState.knob {
 				state.ignoreKnobRelease = true
 				state.ignoreBottomLeftRelease = true
-				go foobarStop(state, cmdChan)
-			} else if config.TubeRemotePort != 0 {
+				if state.tubeMode {
+					go tubeRemoteStop(cmdChan)
+				} else {
+					go foobarStop(state, cmdChan)
+				}
+			} else if !state.tubeMode && config.TubeRemotePort != 0 {
 				time.AfterFunc(250*time.Millisecond, func() {
 					if state.buttonState.getButtonBottomLeftDuration() > 250*time.Millisecond {
 						state.ignoreBottomLeftRelease = true

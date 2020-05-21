@@ -127,6 +127,10 @@ func TubeRemoteTogglePause() {
 	broadcastChan <- `{"action": "togglePlayback"}`
 }
 
+func TubeRemoteStop() {
+	broadcastChan <- `{"action": "stopPlayback"}`
+}
+
 func TubeRemoteAdjustVolume(delta int) {
 	broadcastChan <- fmt.Sprintf(`{"action": "changeVolume", "delta": %d}`, delta)
 }

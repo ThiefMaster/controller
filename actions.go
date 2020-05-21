@@ -141,6 +141,12 @@ func tubeRemoteTogglePause() {
 	apis.TubeRemoteTogglePause()
 }
 
+func tubeRemoteStop() {
+	log.Println("stopping youtube")
+	apis.TubeRemoteStop()
+}
+
+
 func tubeRemoteAdjustVolume(delta int) {
 	log.Printf("adjusting youtube volume by %+d\n", delta)
 	apis.TubeRemoteAdjustVolume(delta * 2)
