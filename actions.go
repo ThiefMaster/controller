@@ -55,6 +55,23 @@ func lockDesktop(state *appState) {
 	}
 }
 
+func playStopAnimation(cmdChan chan<- comm.Command) {
+	go func() {
+		for i := 0; i < 5; i++ {
+			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
+			time.Sleep(100 * time.Millisecond)
+		}
+	}()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		for i := 0; i < 5; i++ {
+			time.Sleep(100 * time.Millisecond)
+			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
+		}
+		cmdChan <- comm.NewClearLEDCommand(knob)
+	}()
+}
+
 func foobarNext(state *appState, cmdChan chan<- comm.Command) {
 	log.Println("playing next song")
 	if err := apis.FoobarNext(state.config.Foobar); err != nil {
@@ -76,20 +93,7 @@ func foobarStop(state *appState, cmdChan chan<- comm.Command) {
 		log.Printf("foobar stop failed: %v\n", err)
 		return
 	}
-	go func() {
-		for i := 0; i < 5; i++ {
-			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
-			time.Sleep(100 * time.Millisecond)
-		}
-	}()
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		for i := 0; i < 5; i++ {
-			time.Sleep(100 * time.Millisecond)
-			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
-		}
-		cmdChan <- newCommandForFoobarState(state)
-	}()
+	playStopAnimation(cmdChan)
 }
 
 func foobarTogglePause(state *appState) {
@@ -141,9 +145,10 @@ func tubeRemoteTogglePause() {
 	apis.TubeRemoteTogglePause()
 }
 
-func tubeRemoteStop() {
+func tubeRemoteStop(cmdChan chan<- comm.Command) {
 	log.Println("stopping youtube")
 	apis.TubeRemoteStop()
+	playStopAnimation(cmdChan)
 }
 
 
