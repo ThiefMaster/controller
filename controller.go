@@ -231,7 +231,7 @@ func runTubeRemote(state *appState, cmdChan chan<- comm.Command) {
 				cmdChan <- newCommandForTubeRemoteState(state)
 			})
 			continue
-		} else if !newState.Available {
+		} else if newState.State == apis.TubeRemoteStateOffline {
 			// if we came here right after action-failed, then changing the LED
 			// would happen too early and we have the timer to take care of it
 			if !oldState.ActionFailed {
@@ -240,21 +240,15 @@ func runTubeRemote(state *appState, cmdChan chan<- comm.Command) {
 			continue
 		}
 
-		if ((!oldState.Playing && newState.Playing) || oldState.Volume > 0) && newState.Volume == 0 {
+		if ((!oldState.Playing() && newState.Playing()) || oldState.Volume > 0) && newState.Volume == 0 {
 			// show red when we just went silent or started playing while being silent
 			cmdChan <- comm.NewSetLEDCommand(knob, 'R')
 			time.AfterFunc(1*time.Second, func() {
 				cmdChan <- newCommandForTubeRemoteState(state)
 			})
-		} else if oldState.Available && oldState.Volume != 100 && newState.Volume == 100 {
+		} else if !oldState.Offline() && oldState.Volume != 100 && newState.Volume == 100 {
 			// show green if we changed the volume to max
 			cmdChan <- comm.NewSetLEDCommand(knob, 'G')
-			time.AfterFunc(1*time.Second, func() {
-				cmdChan <- newCommandForTubeRemoteState(state)
-			})
-		} else if oldState.Available && oldState.Playing && !newState.Playing {
-			// temporarily show yellow if we just paused
-			cmdChan <- comm.NewSetLEDCommand(knob, 'Y')
 			time.AfterFunc(1*time.Second, func() {
 				cmdChan <- newCommandForTubeRemoteState(state)
 			})

@@ -11,11 +11,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	TubeRemoteStateOffline = "offline"
+	TubeRemoteStateStopped = "stopped"
+	TubeRemoteStatePlaying = "playing"
+	TubeRemoteStatePaused  = "paused"
+)
+
 type TubeRemoteState struct {
-	Available    bool
-	Playing      bool
+	State        string
 	Volume       int
 	ActionFailed bool
+}
+
+func (s *TubeRemoteState) Playing() bool {
+	return s.State == TubeRemoteStatePlaying
+}
+
+func (s *TubeRemoteState) Offline() bool {
+	return s.State == TubeRemoteStateOffline
 }
 
 var (

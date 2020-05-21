@@ -152,7 +152,7 @@ func tubeRemoteSeek(delta int) {
 }
 
 func newCommandForTubeRemoteState(state *appState) comm.Command {
-	if state.tubeRemoteState.Available && !state.tubeRemoteState.Playing {
+	if state.tubeRemoteState.State == apis.TubeRemoteStatePaused {
 		return comm.NewSetLEDCommand(knob, 'Y')
 	} else {
 		return comm.NewClearLEDCommand(knob)
