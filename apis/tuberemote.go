@@ -112,7 +112,7 @@ func tubeRemoteListener(port int) {
 func RunTubeRemote(port int) <-chan TubeRemoteState {
 	http.HandleFunc("/ws", ws)
 	go func() {
-		for range time.Tick(500 * time.Millisecond) {
+		for range time.Tick(250 * time.Millisecond) {
 			if activeConn != nil {
 				broadcastChan <- `{"action": "getStatus"}`
 			}
