@@ -25,12 +25,12 @@ const (
 )
 
 type buttonState struct {
-	knob               bool
-	topLeft            bool
-	bottomLeft         bool
-	bottomRight        bool
-	bottomLeftStart    time.Time
-	bottomLeftDuration time.Duration
+	knob             bool
+	topLeft          bool
+	bottomLeft       bool
+	bottomRight      bool
+	bottomLeftStart  time.Time
+	bottomRightStart time.Time
 }
 
 func (b *buttonState) handleMessage(msg comm.Message) {
@@ -50,6 +50,11 @@ func (b *buttonState) handleMessage(msg comm.Message) {
 		}
 		b.bottomLeft = pressed
 	} else if msg.Source == buttonBottomRight {
+		if !b.bottomRight && pressed {
+			b.bottomRightStart = time.Now()
+		} else if b.bottomRight && !pressed {
+			b.bottomRightStart = time.Time{}
+		}
 		b.bottomRight = pressed
 	}
 }
@@ -61,9 +66,17 @@ func (b *buttonState) getButtonBottomLeftDuration() time.Duration {
 	return time.Now().Sub(b.bottomLeftStart)
 }
 
+func (b *buttonState) getButtonBottomRightDuration() time.Duration {
+	if !b.bottomRight {
+		return 0
+	}
+	return time.Now().Sub(b.bottomRightStart)
+}
+
 type appState struct {
 	config                    *appConfig
 	ready                     bool
+	shutdown                  bool
 	desktopLocked             bool
 	monitorsOn                bool
 	knobTurnedWhilePressed    bool
@@ -71,6 +84,7 @@ type appState struct {
 	knobDirectionErrors       int
 	ignoreKnobRelease         bool
 	ignoreBottomLeftRelease   bool
+	ignoreBottomRightRelease  bool
 	disableFoobarStateLED     bool
 	foobarState               apis.FoobarPlayerInfo
 	tubeRemoteState           apis.TubeRemoteState
@@ -80,10 +94,12 @@ type appState struct {
 
 func (s *appState) reset() {
 	s.ready = false
+	s.shutdown = false
 	s.desktopLocked = false
 	s.monitorsOn = true
 	s.disableFoobarStateLED = false
 	s.ignoreBottomLeftRelease = false
+	s.ignoreBottomRightRelease = false
 	s.resetKnobPressState(false)
 }
 
@@ -215,6 +231,19 @@ func toggleTubeMode(state *appState, cmdChan chan<- comm.Command, enabled bool) 
 	}
 }
 
+func switchAudioTarget(state *appState, cmdChan chan<- comm.Command) {
+	if err := apis.SetNextDefaultEndpoint(); err != nil {
+		log.Printf("Could not change default audio endpoint: %s\n", err)
+		return
+	}
+	// we use `state.monitorsOn` to toggle the LED regardless of its previous state.
+	// XXX: maybe we should just prohibit most actions while the system is locked?
+	cmdChan <- comm.NewToggleLEDCommand(buttonBottomRight, state.monitorsOn)
+	time.AfterFunc(250*time.Millisecond, func() {
+		cmdChan <- comm.NewToggleLEDCommand(buttonBottomRight, !state.monitorsOn)
+	})
+}
+
 func runTubeRemote(state *appState, cmdChan chan<- comm.Command) {
 	for newState := range apis.RunTubeRemote(state.config.TubeRemotePort) {
 		oldState := state.tubeRemoteState
@@ -301,7 +330,17 @@ func main() {
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonTopLeft:
 			lockDesktop(state)
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomRight:
-			toggleMonitors(cmdChan, state)
+			if !state.ignoreBottomRightRelease {
+				toggleMonitors(cmdChan, state)
+			}
+			state.ignoreBottomRightRelease = false
+		case msg.Message == comm.ButtonPressed && msg.Source == buttonBottomRight:
+			time.AfterFunc(250*time.Millisecond, func() {
+				if !state.shutdown && state.buttonState.getButtonBottomRightDuration() > 250*time.Millisecond {
+					state.ignoreBottomRightRelease = true
+					switchAudioTarget(state, cmdChan)
+				}
+			})
 		case msg.Message == comm.ButtonReleased && msg.Source == buttonBottomLeft:
 			if !state.buttonState.knob && !state.ignoreBottomLeftRelease {
 				if state.tubeMode {
@@ -322,7 +361,7 @@ func main() {
 				}
 			} else if !state.tubeMode && config.TubeRemotePort != 0 {
 				time.AfterFunc(250*time.Millisecond, func() {
-					if state.buttonState.getButtonBottomLeftDuration() > 250*time.Millisecond {
+					if !state.shutdown && state.buttonState.getButtonBottomLeftDuration() > 250*time.Millisecond {
 						state.ignoreBottomLeftRelease = true
 						toggleTubeMode(state, cmdChan, true)
 					}
@@ -375,6 +414,7 @@ func main() {
 		}
 
 		if state.buttonState.topLeft && state.buttonState.bottomLeft && state.buttonState.bottomRight {
+			state.shutdown = true
 			log.Println("shutdown requested")
 			break
 		}

@@ -126,7 +126,7 @@ func foobarAdjustVolume(state *appState, cmdChan chan<- comm.Command, delta int)
 
 func foobarSeek(state *appState, delta int) {
 	log.Printf("seeking %+d", delta)
-	if err := apis.FoobarSeekRelative(delta * 5, state.config.Foobar); err != nil {
+	if err := apis.FoobarSeekRelative(delta*5, state.config.Foobar); err != nil {
 		log.Printf("foobar seek failed: %v\n", err)
 		return
 	}
@@ -150,7 +150,6 @@ func tubeRemoteStop(cmdChan chan<- comm.Command) {
 	apis.TubeRemoteStop()
 	playStopAnimation(cmdChan)
 }
-
 
 func tubeRemoteAdjustVolume(delta int) {
 	log.Printf("adjusting youtube volume by %+d\n", delta)
