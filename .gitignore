@@ -1,4 +1,6 @@
 .idea/
+.vscode/*
+!.vscode/tasks.json
 *.swp
 *.exe
 config.yaml
