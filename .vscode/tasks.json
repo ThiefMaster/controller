@@ -4,7 +4,7 @@
     {
       "label": "Build all",
       "type": "shell",
-      "command": "go build -i -o controller-cli.exe; go build -i -o controller.exe -ldflags -H=windowsgui",
+      "command": "go build -o controller-cli.exe; go build -o controller.exe -ldflags -H=windowsgui",
       "problemMatcher": [],
       "group": {
         "kind": "build",
@@ -14,13 +14,13 @@
     {
       "label": "Build with CLI",
       "type": "shell",
-      "command": "go build -i -o controller-cli.exe",
+      "command": "go build -o controller-cli.exe",
       "problemMatcher": []
     },
     {
       "label": "Build without CLI",
       "type": "shell",
-      "command": "go build -i -o controller.exe -ldflags -H=windowsgui",
+      "command": "go build -o controller.exe -ldflags -H=windowsgui",
       "problemMatcher": []
     }
   ]
